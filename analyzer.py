@@ -2,10 +2,11 @@
 Web content analyzer module.
 Responsible for analyzing new URLs and content based on initial seeds and patterns.
 """
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 import aiohttp
+import logging
 from .sensors import (
     CaptchaSensor,
     JavaScriptSensor,
@@ -15,16 +16,20 @@ from .sensors import (
     MobileSensor
 )
 
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 @dataclass
-class AnalyzizResult:
+class AnalysisResult:
     url: str
     analyzed_at: datetime
     content_type: str
     metadata: Dict[str, Any]
     profile: Dict[str, Any]
 
-class Webanalyzer:
-    """analyzs new web content based on patterns and initial seeds"""
+class WebAnalyzer:
+    """Analyzes new web content based on patterns and initial seeds"""
 
     def __init__(self):
         self.analyzed_urls: List[str] = []
@@ -44,67 +49,74 @@ class Webanalyzer:
         Analyze a URL using all available sensors
 
         Args:
-            url: URL to analyze
+            url (str): URL to analyze
 
         Returns:
             Dict containing aggregated sensor results
         """
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                # Create a response-like object with the content
-                response_data = {
-                    'status_code': response.status,
-                    'headers': dict(response.headers),
-                    'text': await response.text(),
-                    'url': url
-                }
+        profile = {
+            'url': url,
+            'status_code': None,
+            'headers': {},
+            'restrictions': {},
+            'features': {},
+            'mitigation_strategies': {},
+            'overall_confidence': 0.0
+        }
 
-                profile = {
-                    'url': url,
-                    'status_code': response.status,
-                    'headers': dict(response.headers),
-                    'restrictions': {},
-                    'features': {},
-                    'mitigation_strategies': {},
-                    'overall_confidence': 0.0
-                }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    # Create a response-like object with the content
+                    response_data = {
+                        'status_code': response.status,
+                        'headers': dict(response.headers),
+                        'text': await response.text(),
+                        'url': url
+                    }
 
-                # Run all sensors
-                total_confidence = 0
-                sensor_count = 0
+                    profile['status_code'] = response.status
+                    profile['headers'] = dict(response.headers)
 
-                for sensor_name, sensor in self.sensors.items():
-                    try:
-                        result = await sensor.detect(response_data, url=url)
+                    # Run all sensors
+                    total_confidence = 0
+                    sensor_count = 0
 
-                        # Add sensor results to profile
-                        if sensor_name in ['captcha', 'javascript', 'antibot']:
-                            profile['restrictions'][sensor_name] = result
-                            total_confidence += result.get('confidence', 0)
-                            sensor_count += 1
-                        else:
-                            profile['features'][sensor_name] = result
+                    for sensor_name, sensor in self.sensors.items():
+                        try:
+                            result = await sensor.detect(response_data, url=url)
 
-                        # Add mitigation strategies
-                        mitigation = sensor.get_mitigation_strategy()
-                        if mitigation:
-                            profile['mitigation_strategies'][sensor_name] = mitigation
-                    except Exception as e:
-                        print(f"Error in {sensor_name} sensor: {str(e)}")
-                        continue
+                            # Add sensor results to profile
+                            if sensor_name in ['captcha', 'javascript', 'antibot']:
+                                profile['restrictions'][sensor_name] = result
+                                total_confidence += result.get('confidence', 0)
+                                sensor_count += 1
+                            else:
+                                profile['features'][sensor_name] = result
 
-                # Calculate overall confidence
-                if sensor_count > 0:
-                    profile['overall_confidence'] = round(total_confidence / sensor_count, 2)
+                            # Add mitigation strategies
+                            mitigation = sensor.get_mitigation_strategy(result)
+                            if mitigation:
+                                profile['mitigation_strategies'][sensor_name] = mitigation
+                        except Exception as e:
+                            logger.error(f"Error in {sensor_name} sensor: {str(e)}")
+                            continue
 
-                return profile
+                    # Calculate overall confidence
+                    if sensor_count > 0:
+                        profile['overall_confidence'] = round(total_confidence / sensor_count, 2)
 
-    async def analyz(self, seed_url: str) -> List[AnalyzizResult]:
+        except aiohttp.ClientError as e:
+            logger.error(f"Failed to fetch URL {url}: {str(e)}")
+
+        return profile
+
+    async def analyze(self, seed_url: str) -> List[AnalysisResult]:
         """
-        analyz new content starting from a seed URL
+        Analyze new content starting from a seed URL
 
         Args:
-            seed_url: The starting point URL for Analyziz
+            seed_url (str): The starting point URL for analysis
 
         Returns:
             List of analyzed content results
@@ -112,8 +124,8 @@ class Webanalyzer:
         # Analyze the seed URL first
         profile = await self.analyze_url(seed_url)
 
-        # Create initial Analyziz result
-        result = AnalyzizResult(
+        # Create initial Analysis result
+        result = AnalysisResult(
             url=seed_url,
             analyzed_at=datetime.utcnow(),
             content_type=profile['headers'].get('content-type', 'unknown'),
@@ -132,11 +144,10 @@ class Webanalyzer:
 
     async def analyze_pattern(self, urls: List[str]):
         """
-        Analyze URLs to detect patterns for further Analyziz
+        Analyze URLs to detect patterns for further analysis
 
         Args:
-            urls: List of URLs to analyze
+            urls (List[str]): List of URLs to analyze
         """
-        # This will be implemented to detect URL patterns
-        # and generate rules for the spider
+        # TODO: Implement URL pattern analysis and generate rules for the spider
         pass
