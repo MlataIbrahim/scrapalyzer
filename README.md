@@ -1,9 +1,9 @@
-# website-analyzer
+# Scrapalyzer
 An automated tool that analyzes websites and generates structured JSON profiles containing essential technical insights for building efficient web scrapers. Detects JavaScript rendering, anti-bot systems, CAPTCHA, authentication requirements, and API endpoints to help developers implement robust scraping solutions.
 
 ## Features
 
-Website Analyzer includes multiple specialized sensors to detect and analyze different website characteristics:
+Scrapalyzer includes multiple specialized sensors to detect and analyze different website characteristics:
 
 - **Antibot Sensor**: Detects anti-bot measures and protection systems
 - **API Sensor**: Identifies API endpoints and their requirements
@@ -15,9 +15,9 @@ Website Analyzer includes multiple specialized sensors to detect and analyze dif
 ## Installation
 
 ```bash
-pip install website-analyzer
+pip install scrapalyzer
 # or
-poetry add website-analyzer
+poetry add scrapalyzer
 ```
 
 ## Requirements
@@ -32,15 +32,15 @@ poetry add website-analyzer
 
 ```python
 import asyncio
-from website_analyzer import WebAnalyzer
+from scrapalyzer import Scrapalyzer
 
 async def main():
-    analyzer = WebAnalyzer()
+    scrapalyzer = Scrapalyzer()
     
-    result = await analyzer.analyze_url("https://example.com")
+    result = await scrapalyzer.analyze_url("https://example.com")
     print(result)
     
-    results = await analyzer.analyze("https://example.com")
+    results = await scrapalyzer.analyze("https://example.com")
     for result in results:
         print(f"URL: {result.url}")
         print(f"Analyzed at: {result.analyzed_at}")
@@ -105,8 +105,8 @@ The analyzer generates a JSON output containing the analysis results from all se
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/website-analyzer.git
-cd website-analyzer
+git clone https://github.com/yourusername/scrapalyzer.git
+cd scrapalyzer
 ```
 
 2. Create a virtual environment:
